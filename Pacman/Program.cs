@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Runtime.Remoting.Channels;
 using System.Windows.Forms;
 
 namespace Pacman
@@ -44,12 +45,17 @@ namespace Pacman
             else if (playerY < enemyY && gamer.CanMove(dic, enemyX, enemyY - 50))
                 enemy.Top -= 50;
         }
+
+        public void TransformEnemy()
+        {
+            EnemyPicRed.Image = Image.FromFile(_path + "\\Sprites\\enemyBigRed.gif");
+            EnemyPicYellow.Image = Image.FromFile(_path + "\\Sprites\\enemyBigRed.gif");
+        }
     }
     
     public class Gamer
     {
         public readonly PictureBox PlayerPic;
-        public int Count;
         private readonly string _path = Directory.GetCurrentDirectory();
 
         public Gamer()
@@ -74,39 +80,32 @@ namespace Pacman
             switch (direction)
             {
                 case "Right" when playerX + 50 == 750 && playerY == 400:
-                    TakeCoin(dic, playerX, playerY);
+                    CoinChanged?.Invoke(dic, playerX, playerY);
                     PlayerPic.Location = new Point(0, 400);
-                    PlayerPic.Image = PlayerPicImage("playerRightGIF.gif");
+                    PlayerChanged?.Invoke("playerRightGIF.gif");
                     break;
                 case "Right" when CanMove(dic, playerX + 50, playerY):
-                    TakeCoin(dic, playerX, playerY);
+                    CoinChanged?.Invoke(dic, playerX, playerY);
                     PlayerPic.Left += 50;
                     break;
                 case "Left" when playerX - 50 == -50 && playerY == 400:
-                    TakeCoin(dic, playerX, playerY);
+                    CoinChanged?.Invoke(dic, playerX, playerY);
                     PlayerPic.Location = new Point(700, 400);
-                    PlayerPic.Image = PlayerPicImage("playerLeftGIF.gif");
+                    PlayerChanged?.Invoke("playerLeftGIF.gif");
                     break;
                 case "Left" when CanMove(dic, playerX - 50, playerY):
-                    TakeCoin(dic, playerX, playerY);
+                    CoinChanged?.Invoke(dic, playerX, playerY);
                     PlayerPic.Left -= 50;
                     break;
                 case "Up" when CanMove(dic, playerX, playerY - 50):
-                    TakeCoin(dic, playerX, playerY);
+                    CoinChanged?.Invoke(dic, playerX, playerY);
                     PlayerPic.Top -= 50;
                     break;
                 case "Down" when CanMove(dic, playerX, playerY + 50):
-                    TakeCoin(dic, playerX, playerY);
+                    CoinChanged?.Invoke(dic, playerX, playerY);
                     PlayerPic.Top += 50;
                     break;
             }
-        }
-
-        private void TakeCoin(Dictionary<Point, PictureBox> dic, int playerX, int playerY)
-        {
-            if (!dic[new Point(playerX, playerY)].Visible) return;
-            dic[new Point(playerX, playerY)].Hide();
-            Count++;
         }
 
         public bool CanMove(Dictionary<Point, PictureBox> dic, int x, int y)
@@ -123,29 +122,27 @@ namespace Pacman
             {
                 case "D" when CanMove(field.Dic, playerX + 50, playerY):
                     dir = "Right";
-                    PlayerPic.Image = PlayerPicImage("playerRightGIF.gif");
+                    PlayerChanged?.Invoke("playerRightGIF.gif");
                     break;
                 case "A" when CanMove(field.Dic, playerX - 50, playerY):
                     dir = "Left";
-                    PlayerPic.Image = PlayerPicImage("playerLeftGIF.gif");
+                    PlayerChanged?.Invoke("playerLeftGIF.gif");
                     break;
                 case "W" when CanMove(field.Dic, playerX, playerY - 50):
                     dir = "Up";
-                    PlayerPic.Image = PlayerPicImage("playerUpGIF.gif");
+                    PlayerChanged?.Invoke("playerUpGIF.gif");
                     break;
                 case "S" when CanMove(field.Dic, playerX, playerY + 50):
                     dir = "Down";
-                    PlayerPic.Image = PlayerPicImage("playerDownGIF.gif");
+                    PlayerChanged?.Invoke("playerDownGIF.gif");
                     break;
             }
 
             return dir;
         }
         
-        private Image PlayerPicImage(string picture)
-        {
-            return Image.FromFile(_path + "\\Sprites\\"+ picture);
-        }
+        public event Action<string> PlayerChanged;
+        public event Action<Dictionary<Point, PictureBox>, int, int> CoinChanged;
     }
     public class Field
     {
@@ -217,8 +214,10 @@ namespace Pacman
         {
             FormBorderStyle = FormBorderStyle.Fixed3D;
             MaximizeBox = false;
+            var countCoins = 0;
             var timerEnemy = new Timer();
             var timerPlayer = new Timer();
+            var timerCoin = new Timer();
             var path = Directory.GetCurrentDirectory();
             var direction = "";
             var pointCount = new Label()
@@ -237,22 +236,41 @@ namespace Pacman
             field.FillField();
             CreateField(field);
             timerEnemy.Start();
-            timerEnemy.Interval = 250;
+            timerEnemy.Interval = 350;
             timerPlayer.Start();
             timerPlayer.Interval = 200;
+            timerCoin.Start();
+            timerCoin.Interval = 500;
             this.KeyDown += (sender, args) =>
             {
                 direction = gamer.DirectionPlayer(field, gamer, args, direction);
             };
+            timerCoin.Tick += (sender, args) =>
+            {
+                if (countCoins != 50) return;
+                enemy.TransformEnemy();
+                timerEnemy.Interval = 200;
+                timerCoin.Stop();
+            };
             timerPlayer.Tick += (sender, args) =>
             {
                 gamer.AutoMoving(sender, args, field.Dic, direction, enemy.EnemyPicRed, enemy.EnemyPicYellow);
-                pointCount.Text = gamer.Count.ToString();
+                pointCount.Text = countCoins.ToString();
             };
             timerEnemy.Tick += (sender, args) =>
             {
                 Enemy.Moving(gamer, field.Dic, enemy.EnemyPicYellow);
                 Enemy.Moving(gamer, field.Dic, enemy.EnemyPicRed);
+            };
+            gamer.PlayerChanged += (sender) =>
+            {
+                gamer.PlayerPic.Image = Image.FromFile(path + "\\Sprites\\" + sender);
+            };
+            gamer.CoinChanged += (dic, playerX, playerY) =>
+            {
+                if (!dic[new Point(playerX, playerY)].Visible) return;
+                dic[new Point(playerX, playerY)].Hide();
+                countCoins++;
             };
         }
 
