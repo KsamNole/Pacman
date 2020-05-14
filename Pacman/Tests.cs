@@ -1,5 +1,6 @@
-﻿using System.Drawing;
-using System.Security.Cryptography;
+﻿using System;
+using System.Drawing;
+using System.Reflection;
 using System.Windows.Forms;
 using NUnit.Framework;
 
@@ -9,9 +10,10 @@ namespace Pacman
     
     public class Tests
     {
-        private Field field = new Field("D:\\Fast access\\Documents\\RiderProjects\\Pacman\\Pacman\\bin\\Debug\\");
-        private Gamer gamer = new Gamer("D:\\Fast access\\Documents\\RiderProjects\\Pacman\\Pacman\\bin\\Debug\\");
-        private Enemy enemy = new Enemy("D:\\Fast access\\Documents\\RiderProjects\\Pacman\\Pacman\\bin\\Debug\\");
+        private readonly Field field = new Field();
+        private readonly Gamer gamer = new Gamer();
+        private readonly Enemy enemy = new Enemy();
+        private readonly RandomBox box = new RandomBox();
 
         [TestCase(100, 50, 150, 50)]
         [TestCase(300, 50, 250, 50)]
@@ -80,7 +82,7 @@ namespace Pacman
             var playerLoc = new Point();
             while (true)
             {
-                gamer.AutoMoving(field.Dic, direction, enemy.EnemyPicRed, enemy.EnemyPicYellow);
+                gamer.AutoMoving(field.Dic, direction, enemy.EnemyPicRed, enemy.EnemyPicYellow, box);
                 if (playerLoc == gamer.PlayerPic.Location)
                     break;
                 playerLoc = gamer.PlayerPic.Location;

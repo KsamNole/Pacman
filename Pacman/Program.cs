@@ -4,8 +4,43 @@ using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
 
+/*После 50 очков меняется текстура монстров и их скорость увеличивается
+  Подобрав коробку выпадает одно из трех действий: +Скорость (на время), Монстры останавливаются (на время), Монстры становятся такими же как после 50 монет*/
+
 namespace Pacman
 {
+    public class RandomBox
+    {
+        public readonly PictureBox boxPic;
+        private readonly string _path;
+
+        public RandomBox()
+        {
+            _path = AppDomain.CurrentDomain.BaseDirectory;
+            boxPic = boxPic = CreatePictureBox();
+        }
+
+        private PictureBox CreatePictureBox()
+        {
+            return new PictureBox() {
+                Image = Image.FromFile(_path + "\\Sprites\\box.gif"),
+                Name = "box",
+                Size = new Size(50, 50),
+                Location = new Point(350, 650),
+                SizeMode = PictureBoxSizeMode.StretchImage
+            };
+        }
+
+        public void Roulete()
+        {
+            boxPic.Location = new Point(-50, -50);
+            var random = new Random().Next(3);
+            BoxChanged(random);
+        }
+
+        public event Action<int> BoxChanged;
+    }
+    
     public class Enemy
     {
         private readonly string _path;
@@ -14,14 +49,7 @@ namespace Pacman
 
         public Enemy()
         {
-            _path = Directory.GetCurrentDirectory();
-            EnemyPicYellow = CreatePictureBox("enemyYellow.png", 650 , 50, "enemyYellow");
-            EnemyPicRed = CreatePictureBox("enemyRed.png", 50, 850, "enemyRed");
-        }
-
-        public Enemy(string path)
-        {
-            _path = path;
+            _path = AppDomain.CurrentDomain.BaseDirectory;
             EnemyPicYellow = CreatePictureBox("enemyYellow.png", 650 , 50, "enemyYellow");
             EnemyPicRed = CreatePictureBox("enemyRed.png", 50, 850, "enemyRed");
         }
@@ -67,20 +95,13 @@ namespace Pacman
 
         public Gamer()
         {
-            _path = Directory.GetCurrentDirectory();
-            PlayerPic = new PictureBox() {
-                Image = Image.FromFile(_path + "\\Sprites\\playerRightGIF.gif"),
-                Name = "player",
-                Size = new Size(50, 50),
-                Location = new Point(50, 50),
-                SizeMode = PictureBoxSizeMode.StretchImage
-            };
+            _path = AppDomain.CurrentDomain.BaseDirectory;
+            PlayerPic = CreatePictureBox();
         }
-        
-        public Gamer(string path)
+
+        private PictureBox CreatePictureBox()
         {
-            _path = path;
-            PlayerPic = new PictureBox() {
+            return new PictureBox() {
                 Image = Image.FromFile(_path + "\\Sprites\\playerRightGIF.gif"),
                 Name = "player",
                 Size = new Size(50, 50),
@@ -89,14 +110,16 @@ namespace Pacman
             };
         }
 
-        public void AutoMoving(Dictionary<Point, PictureBox> dic, string direction, PictureBox enemyRed, PictureBox enemyYellow)
+        public void AutoMoving(Dictionary<Point, PictureBox> dic, string direction, PictureBox enemyRed, PictureBox enemyYellow, RandomBox box)
         {
             var playerX = PlayerPic.Location.X;
             var playerY = PlayerPic.Location.Y;
-            if (PlayerPic.Location == enemyRed.Location && PlayerPic.Location == enemyRed.Location)
+            if (PlayerPic.Location == enemyRed.Location)
                 Application.Exit();
-            if (PlayerPic.Location == enemyYellow.Location && PlayerPic.Location == enemyYellow.Location)
+            if (PlayerPic.Location == enemyYellow.Location)
                 Application.Exit();
+            if (PlayerPic.Location == box.boxPic.Location)
+                box.Roulete();
             switch (direction)
             {
                 case "Right" when playerX + 50 == 750 && playerY == 400:
@@ -174,12 +197,7 @@ namespace Pacman
 
         public Field()
         {
-            _path  = Directory.GetCurrentDirectory();
-        }
-        
-        public Field(string path)
-        {
-            _path  = path;
+            _path  = AppDomain.CurrentDomain.BaseDirectory;
         }
 
         public void FillField()
@@ -240,7 +258,7 @@ namespace Pacman
 
     public class MyForm : Form
     {
-        public MyForm(Field field, Gamer gamer, Enemy enemy)
+        private MyForm(Field field, Gamer gamer, Enemy enemy, RandomBox box)
         {
             FormBorderStyle = FormBorderStyle.Fixed3D;
             MaximizeBox = false;
@@ -248,7 +266,7 @@ namespace Pacman
             var timerEnemy = new Timer();
             var timerPlayer = new Timer();
             var timerCoin = new Timer();
-            var path = Directory.GetCurrentDirectory();
+            var path = AppDomain.CurrentDomain.BaseDirectory;
             var direction = "";
             var pointCount = new Label()
             {
@@ -263,6 +281,7 @@ namespace Pacman
             Controls.Add(enemy.EnemyPicYellow);
             Controls.Add(enemy.EnemyPicRed);
             Controls.Add(gamer.PlayerPic);
+            Controls.Add(box.boxPic);
             field.FillField();
             CreateField(field);
             timerEnemy.Start();
@@ -284,7 +303,7 @@ namespace Pacman
             };
             timerPlayer.Tick += (sender, args) =>
             {
-                gamer.AutoMoving(field.Dic, direction, enemy.EnemyPicRed, enemy.EnemyPicYellow);
+                gamer.AutoMoving(field.Dic, direction, enemy.EnemyPicRed, enemy.EnemyPicYellow, box);
                 pointCount.Text = countCoins.ToString();
             };
             timerEnemy.Tick += (sender, args) =>
@@ -302,8 +321,80 @@ namespace Pacman
                 dic[new Point(playerX, playerY)].Hide();
                 countCoins++;
             };
+            box.BoxChanged += (random) =>
+            {
+                var label = new Label()
+                {
+                    Location = new Point(0, 0),
+                    ForeColor = Color.FromArgb(255, Color.Aqua),
+                    TextAlign = ContentAlignment.MiddleCenter,
+                    Size = new Size(ClientSize.Width, 30)
+                };
+                label.Font = new Font(pointCount.Font.FontFamily, 15.0f, pointCount.Font.Style);
+                var timer = new Timer();
+                var flag = true;
+                switch (random)
+                {
+                    case 0:
+                        label.Text = "STAND";
+                        Controls.Add(label);
+                        timer.Start();
+                        timer.Interval = 1;
+                        timer.Tick += (sender, args) =>
+                        {
+                            if (flag)
+                            {
+                                timer.Interval = 5000;
+                                timerEnemy.Stop();
+                                flag = false;
+                            }
+                            else
+                            {
+                                timerEnemy.Start();
+                                timer.Stop();
+                                label.Hide();
+                            }
+                        };
+                        break;
+                    case 1:
+                        label.Text = "SPEED";
+                        Controls.Add(label);
+                        SwitchBox(timer, timerPlayer, null, label);
+                        break;
+                    case 2:
+                        label.Text = "UPGRADE";
+                        Controls.Add(label);
+                        SwitchBox(timer, null, enemy, label);
+                        break;
+                }
+            };
         }
 
+        private void SwitchBox(Timer timer, Timer timerPlayer, Enemy enemy, Label label)
+        {
+            var flag = true;
+            timer.Start();
+            timer.Interval = 1;
+            timer.Tick += (sender, args) =>
+            {
+                if (flag)
+                {
+                    timer.Interval = 5000;
+                    enemy?.TransformEnemy();
+                    if (timerPlayer != null)
+                        timerPlayer.Interval = 100;
+                    flag = false;
+                }
+                else
+                {
+                    if (timerPlayer != null)
+                        timerPlayer.Interval = 200;
+                    timer.Stop();
+                    label.Hide();
+                }
+            };
+        }
+        
         private static void MakeMusic(string path)
         {
             var wmp = new WMPLib.WindowsMediaPlayer();
@@ -318,7 +409,8 @@ namespace Pacman
             var field = new Field();
             var gamer = new Gamer();
             var enemy = new Enemy();
-            Application.Run(new MyForm(field, gamer, enemy) {ClientSize = new Size(750, 950),
+            var box = new RandomBox();
+            Application.Run(new MyForm(field, gamer, enemy, box) {ClientSize = new Size(750, 950),
                 BackColor = Color.Black,
                 BackgroundImage = Image.FromFile(path + "\\Sprites\\background.png")
             });
