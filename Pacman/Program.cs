@@ -2,23 +2,30 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
-using System.Runtime.Remoting.Channels;
 using System.Windows.Forms;
 
 namespace Pacman
 {
     public class Enemy
     {
-        private readonly string _path = Directory.GetCurrentDirectory();
+        private readonly string _path;
         public readonly PictureBox EnemyPicYellow;
         public readonly PictureBox EnemyPicRed;
 
         public Enemy()
         {
+            _path = Directory.GetCurrentDirectory();
             EnemyPicYellow = CreatePictureBox("enemyYellow.png", 650 , 50, "enemyYellow");
             EnemyPicRed = CreatePictureBox("enemyRed.png", 50, 850, "enemyRed");
         }
-        
+
+        public Enemy(string path)
+        {
+            _path = path;
+            EnemyPicYellow = CreatePictureBox("enemyYellow.png", 650 , 50, "enemyYellow");
+            EnemyPicRed = CreatePictureBox("enemyRed.png", 50, 850, "enemyRed");
+        }
+
         private PictureBox CreatePictureBox(string picture, int x, int y, string name)
         {
             return new PictureBox() {
@@ -56,10 +63,23 @@ namespace Pacman
     public class Gamer
     {
         public readonly PictureBox PlayerPic;
-        private readonly string _path = Directory.GetCurrentDirectory();
+        private readonly string _path;
 
         public Gamer()
         {
+            _path = Directory.GetCurrentDirectory();
+            PlayerPic = new PictureBox() {
+                Image = Image.FromFile(_path + "\\Sprites\\playerRightGIF.gif"),
+                Name = "player",
+                Size = new Size(50, 50),
+                Location = new Point(50, 50),
+                SizeMode = PictureBoxSizeMode.StretchImage
+            };
+        }
+        
+        public Gamer(string path)
+        {
+            _path = path;
             PlayerPic = new PictureBox() {
                 Image = Image.FromFile(_path + "\\Sprites\\playerRightGIF.gif"),
                 Name = "player",
@@ -69,7 +89,7 @@ namespace Pacman
             };
         }
 
-        public void AutoMoving(object sender, EventArgs e, Dictionary<Point, PictureBox> dic, string direction, PictureBox enemyRed, PictureBox enemyYellow)
+        public void AutoMoving(Dictionary<Point, PictureBox> dic, string direction, PictureBox enemyRed, PictureBox enemyYellow)
         {
             var playerX = PlayerPic.Location.X;
             var playerY = PlayerPic.Location.Y;
@@ -146,11 +166,21 @@ namespace Pacman
     }
     public class Field
     {
-        private readonly string _path = Directory.GetCurrentDirectory();
+        private readonly string _path;
         public const int Width = 15;
         public const int Height = 19;
         public PictureBox[,] Coins;
         public Dictionary<Point, PictureBox> Dic;
+
+        public Field()
+        {
+            _path  = Directory.GetCurrentDirectory();
+        }
+        
+        public Field(string path)
+        {
+            _path  = path;
+        }
 
         public void FillField()
         {
@@ -210,7 +240,7 @@ namespace Pacman
 
     public class MyForm : Form
     {
-        private MyForm(Field field, Gamer gamer, Enemy enemy)
+        public MyForm(Field field, Gamer gamer, Enemy enemy)
         {
             FormBorderStyle = FormBorderStyle.Fixed3D;
             MaximizeBox = false;
@@ -236,11 +266,11 @@ namespace Pacman
             field.FillField();
             CreateField(field);
             timerEnemy.Start();
-            timerEnemy.Interval = 350;
+            timerEnemy.Interval = 450;
             timerPlayer.Start();
             timerPlayer.Interval = 200;
             timerCoin.Start();
-            timerCoin.Interval = 500;
+            timerCoin.Interval = 300;
             this.KeyDown += (sender, args) =>
             {
                 direction = gamer.DirectionPlayer(field, gamer, args, direction);
@@ -249,12 +279,12 @@ namespace Pacman
             {
                 if (countCoins != 50) return;
                 enemy.TransformEnemy();
-                timerEnemy.Interval = 200;
+                timerEnemy.Interval = 350;
                 timerCoin.Stop();
             };
             timerPlayer.Tick += (sender, args) =>
             {
-                gamer.AutoMoving(sender, args, field.Dic, direction, enemy.EnemyPicRed, enemy.EnemyPicYellow);
+                gamer.AutoMoving(field.Dic, direction, enemy.EnemyPicRed, enemy.EnemyPicYellow);
                 pointCount.Text = countCoins.ToString();
             };
             timerEnemy.Tick += (sender, args) =>
@@ -274,7 +304,7 @@ namespace Pacman
             };
         }
 
-        private void MakeMusic(string path)
+        private static void MakeMusic(string path)
         {
             var wmp = new WMPLib.WindowsMediaPlayer();
             wmp.settings.volume = 30;
